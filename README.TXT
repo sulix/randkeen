@@ -3,7 +3,7 @@ Commander Keen 1 Randomiser
 ===========================
 
 Author: David Gow <david@davidgow.net>
-Version: 1.0
+Version: 1.0a
 Website: https://davidgow.net/keen/randomiser.html
 
 
@@ -49,6 +49,10 @@ C:\RANDKEEN> RNDKEEN1 /SEED 12345
 
 You can check what seed you're running from the Status Screen by pressing SPACE.
 
+If you want a somewhat easier or different game, you can use some of the
+other options below. For example:
+C:\RANDKEEN> RNDKEEN1 /STARTAMMO 15 /EXTRAPOGO 6
+
 If you just want to generate the game, not play it, you can run RANDKEEN.EXE:
 this will generate the randomised maps and patch file. Note you'll still need
 to rename LEVEL81.CK1 and LEVEL90.CK1 to RNDLV81.CK1 and RNDLV90.CK1
@@ -57,9 +61,14 @@ by the RNDKEEN1.BAT file).
 
 RNDKEEN1.BAT and RANDKEEN.EXE accept some extra command-line parameters:
 - /? -- Show a help screen listing these parameters.
+  (Use this with RANDKEEN.EXE only, as the game starts anyway.)
 - /SEED <seed> -- set the random number seed to <seed>
 - /DEBUG -- show additional debug information (can contain spoilers!)
 - /NOLEVELNAMES -- Make Yorp hints use level numbers instead of names
+- /NOENEMYSHUFFLE -- don't shuffle enemy positions
+- /STARTPOGO -- start with the pogo stick.
+- /STARTAMMO <n> -- start with <n> ammo.
+- /EXTRAPOGO <n> -- hide <n> extra Pogo sticks around the game.
 
 The Keen 1 Randomiser requires a 386 or better to run, and probably needs a
 megabyte or so of memory.
@@ -83,6 +92,11 @@ but there are a few things to be wary of.
   the level names[1] to take advantage of these. (Or, if you know the level
   numbers, you can use the /NOLEVELNAMES switch.)
 - There's always a Pogo Stick in the Vorticon Commander's dungeon.
+- If you're struggling without the Pogo Stick, you can try the /STARTPOGO
+  option, which will make you always start with a Pogo, or the /EXTRAPOGO <n>
+  option, which will hide an extra <n> Pogo Sticks around the game.
+- Similarly, you can start with extra ammo by using the /STARTAMMO <n> option
+  to begin with <n> shots.
 
 [1]: http://www.shikadi.net/keenwiki/Keen_1_Levels
 

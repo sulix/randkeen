@@ -25,6 +25,10 @@
 // Options
 int opt_seed = 0;
 bool opt_useLevelNames = true;
+bool opt_shuffleEnemies = true;
+bool opt_startPogo = false;
+int opt_startAmmo = 0;
+int opt_extraPogo = 0;
 bool opt_debug = false;
 
 void debugf(const char *format, ...)
@@ -247,6 +251,16 @@ int itemsPerSlot[20] = {K1_T_POGOSTICK, K1_T_JOYSTICK, K1_T_BATTERY, K1_T_EVERCL
 	K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY,
 	K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY,
 	K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY};
+
+void K1_AddExtraPogos()
+{
+	int freeSlot = 0;
+	while (itemsPerSlot[freeSlot] != K1_T_GREYSKY)
+		freeSlot++;
+
+	for (int pogo = 0; pogo < opt_extraPogo; ++pogo)
+		itemsPerSlot[freeSlot++] = K1_T_POGOSTICK;
+}
 
 void K1_SetSpecialItem(VorticonsMap *vMap, uint16_t item, int slot)
 {
@@ -558,6 +572,11 @@ void WritePatchHeader(FILE *f)
 	fprintf(f, "\t\t$BA $%04XW\n", opt_seed & 0xFFFF);
 	fprintf(f, "\t\t$90 $90 $90 $90 $90 $90\n\n");
 	
+	if (opt_startPogo)
+		fprintf(f, "%%patch $900E $01\n\n");
+
+	if (opt_startAmmo)
+		fprintf(f, "%%patch $9008 $%04XW\n\n", opt_startAmmo);
 }
 
 void WritePatchFooter(FILE *f)
@@ -568,7 +587,7 @@ void WritePatchFooter(FILE *f)
 void PrintBanner()
 {
 	printf("Keen 1 Randomiser\n");
-	printf("\tv1.00\n");
+	printf("\tv1.00a\n");
 	printf("\tBy David Gow <david@davidgow.net>\n\n");
 }
 
@@ -579,6 +598,10 @@ void PrintOptions()
 	printf("\t/? -- show this message\n");
 	printf("\t/DEBUG -- show debug messages.\n");
 	printf("\t/NOLEVELNAMES -- use level numbers instead of names in hints.\n");
+	printf("\t/NOENEMYSHUFFLE -- don't shuffle enemy positions.\n");
+	printf("\t/STARTPOGO -- start with the pogo stick.\n");
+	printf("\t/STARTAMMO <n> -- start with <n> ammo.\n");
+	printf("\t/EXTRAPOGO <n> -- hide <n> extra Pogo sticks around the game.\n");
 }
 
 void ParseOptions(int argc, char **argv)
@@ -592,6 +615,22 @@ void ParseOptions(int argc, char **argv)
 		else if (!strcasecmp(argv[i], "/nolevelnames"))
 		{
 			opt_useLevelNames = false;
+		}
+		else if (!strcasecmp(argv[i], "/noenemyshuffle"))
+		{
+			opt_shuffleEnemies = false;
+		}
+		else if (!strcasecmp(argv[i], "/startpogo"))
+		{
+			opt_startPogo = true;
+		}
+		else if (!strcasecmp(argv[i], "/startammo"))
+		{
+			opt_startAmmo = atoi(argv[++i]);
+		}
+		else if (!strcasecmp(argv[i], "/extrapogo"))
+		{
+			opt_extraPogo = atoi(argv[++i]);
 		}
 		else if (!strcasecmp(argv[i], "/debug"))
 		{
@@ -624,6 +663,8 @@ int main(int argc, char **argv)
 	srand(opt_seed);
 	int curItemSlot = 0;
 
+	// Add extra Pogo sticks if requested.
+	K1_AddExtraPogos();
 
 	PermuteArray(itemsPerSlot, 20);
 
@@ -650,12 +691,18 @@ int main(int argc, char **argv)
 		K1_MungeKeys(&vm);
 		K1_MungeBlockColours(&vm);
 		K1_ShuffleLollies(&vm);
-		K1_ShuffleEnemies(&vm);
+		if (opt_shuffleEnemies)
+			K1_ShuffleEnemies(&vm);
 		while (slotsPerLevel[level-1]--)
 		{
-			WriteTileHintToPatch(patchFile, itemsPerSlot[curItemSlot], level);
-			if (itemsPerSlot[curItemSlot] != K1_T_GREYSKY)
-				WriteMapHintToPatch(patchFile, level, mapLocations[level-1]);
+			// If we have the pogo at the start, or we have extra pogosticks,
+			// don't generate hints for pogo stick locations.
+			if (!(opt_startPogo || opt_extraPogo) || (itemsPerSlot[curItemSlot] != K1_T_POGOSTICK))
+			{
+				WriteTileHintToPatch(patchFile, itemsPerSlot[curItemSlot], level);
+				if (itemsPerSlot[curItemSlot] != K1_T_GREYSKY)
+					WriteMapHintToPatch(patchFile, level, mapLocations[level-1]);
+			}
 			K1_SetSpecialItem(&vm, itemsPerSlot[curItemSlot++], slotsPerLevel[level-1]);
 		}
 		sprintf(fname, "RNDLV%02d.CK1", level);
