@@ -557,6 +557,36 @@ void WriteMapHintToPatch(FILE *f, int oldMap, int newMap)
 		fprintf(f, "Level %d\nrests where\nlevel %d once\nwas...\n\n", newMap, oldMap);
 }
 
+void WritePerItemPatch(FILE *f, int level, int item)
+{
+	static int curPatchItem = 0;
+	uint16_t offset = 0x4F68 + 11 * curPatchItem;
+	if (item != K1_T_JOYSTICK &&
+		item != K1_T_BATTERY &&
+		item != K1_T_VACUUM &&
+		item != K1_T_EVERCLEAR)
+		return;
+	// Make sure we don't remove the spaceship parts from the
+	// wrong levels.
+	// cmp ax, (level)
+	fprintf(f, "%%patch $%04X\t$3D $%04XW\n", offset, level);
+	// jnz +6
+	fprintf(f, "\t\t$75 $06\n");
+	// mov (GameState.got_item), 0
+	if (item == K1_T_JOYSTICK)
+		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n", level);
+	else if (item == K1_T_BATTERY)
+		fprintf(f, "\t\t$C7 $06 $AA9CW $0000W\n", level);
+	else if (item == K1_T_VACUUM)
+		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n", level);
+	else if (item == K1_T_EVERCLEAR)
+		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n", level);
+
+	uint8_t end_off = 0x4FA0 - (offset + 13);
+	fprintf(f, "\t\t$EB $%02x\n\n", end_off);
+	curPatchItem++;
+}
+
 void WritePatchHeader(FILE *f)
 {
 	fprintf(f, "%%ext ck1\n");
@@ -571,6 +601,15 @@ void WritePatchHeader(FILE *f)
 	fprintf(f, "%%patch $0FA7\t$B8 $%04XW\n", (opt_seed >> 16) & 0xFFFF);
 	fprintf(f, "\t\t$BA $%04XW\n", opt_seed & 0xFFFF);
 	fprintf(f, "\t\t$90 $90 $90 $90 $90 $90\n\n");
+
+	// Base the game's random number seed off ours.
+	uint8_t randomIndexByte = ((opt_seed >> 24) ^ (opt_seed >> 16) ^ (opt_seed >> 8) ^ opt_seed) & 0xFF;
+	// push ax
+	// mov ax, $00<seed>
+	// mov [randomIndex], ax
+	// pop ax
+	// ret
+	fprintf(f, "%%patch $C0AC $50 $B8 $%02X $00 $A1 $57 $51 $58 $C3\n\n");
 	
 	if (opt_startPogo)
 		fprintf(f, "%%patch $900E $01\n\n");
@@ -587,7 +626,7 @@ void WritePatchFooter(FILE *f)
 void PrintBanner()
 {
 	printf("Keen 1 Randomiser\n");
-	printf("\tv1.00a\n");
+	printf("\tv1.00b\n");
 	printf("\tBy David Gow <david@davidgow.net>\n\n");
 }
 
@@ -695,15 +734,18 @@ int main(int argc, char **argv)
 			K1_ShuffleEnemies(&vm);
 		while (slotsPerLevel[level-1]--)
 		{
+			int item = itemsPerSlot[curItemSlot];
 			// If we have the pogo at the start, or we have extra pogosticks,
 			// don't generate hints for pogo stick locations.
-			if (!(opt_startPogo || opt_extraPogo) || (itemsPerSlot[curItemSlot] != K1_T_POGOSTICK))
+			if (!(opt_startPogo || opt_extraPogo) || (item != K1_T_POGOSTICK))
 			{
-				WriteTileHintToPatch(patchFile, itemsPerSlot[curItemSlot], level);
-				if (itemsPerSlot[curItemSlot] != K1_T_GREYSKY)
-					WriteMapHintToPatch(patchFile, level, mapLocations[level-1]);
+				WriteTileHintToPatch(patchFile, item, level);
+				if (item != K1_T_GREYSKY)
+					WriteMapHintToPatch(patchFile, mapLocations[level-1], level);
 			}
-			K1_SetSpecialItem(&vm, itemsPerSlot[curItemSlot++], slotsPerLevel[level-1]);
+			K1_SetSpecialItem(&vm, item, slotsPerLevel[level-1]);
+			WritePerItemPatch(patchFile, level, item);
+			curItemSlot++;
 		}
 		sprintf(fname, "RNDLV%02d.CK1", level);
 		f = fopen(fname, "wb");
