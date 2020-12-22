@@ -3,7 +3,7 @@ Commander Keen 1 Randomiser
 ===========================
 
 Author: David Gow <david@davidgow.net>
-Version: 1.0b
+Version: 1.0c
 Website: https://davidgow.net/keen/randomiser.html
 
 

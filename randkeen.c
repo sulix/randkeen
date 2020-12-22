@@ -578,9 +578,9 @@ void WritePerItemPatch(FILE *f, int level, int item)
 	else if (item == K1_T_BATTERY)
 		fprintf(f, "\t\t$C7 $06 $AA9CW $0000W\n", level);
 	else if (item == K1_T_VACUUM)
-		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n", level);
+		fprintf(f, "\t\t$C7 $06 $AA96W $0000W\n", level);
 	else if (item == K1_T_EVERCLEAR)
-		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n", level);
+		fprintf(f, "\t\t$C7 $06 $AA98W $0000W\n", level);
 
 	uint8_t end_off = 0x4FA0 - (offset + 13);
 	fprintf(f, "\t\t$EB $%02x\n\n", end_off);
@@ -626,7 +626,7 @@ void WritePatchFooter(FILE *f)
 void PrintBanner()
 {
 	printf("Keen 1 Randomiser\n");
-	printf("\tv1.00b\n");
+	printf("\tv1.00c\n");
 	printf("\tBy David Gow <david@davidgow.net>\n\n");
 }
 
