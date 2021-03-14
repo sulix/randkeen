@@ -3,7 +3,7 @@ Commander Keen 1 Randomiser
 ===========================
 
 Author: David Gow <david@davidgow.net>
-Version: 1.0c
+Version: 1.1
 Website: https://davidgow.net/keen/randomiser.html
 
 
@@ -24,10 +24,12 @@ What does it change?
 - Positions of key items (spaceship parts and pogo stick) are randomised.
 - Enemy positions are shuffled (within a level).
 - Point items (lollies) are shuffled within a level.
-- Door/Keycard colours are randomised (cosmetic only).
+- Door colours and keycard placements are randomised.
 - Some block colours are randomised.
 - Yorp statues now hint at item locations.
+- The exit door won't work until you've got the level's item.
 - You can see the random number seed on the Status Screen (press Space)
+- You can see other game options on the main menu.
 
 Note that there are some things which don't change:
 - Level layouts remain the same.
@@ -83,8 +85,9 @@ but there are a few things to be wary of.
   the original game. Familiarise yourself with them.
 - The Pogo Stick is much harder to get: you'll probably need to complete a
   lot of levels without it!
-- Ship Parts and the Pogo Stick will always be either in their original
-  locations, or right next to the exit. You can't miss them!
+- You can't exit a level if you haven't got the item in it. If the exit door
+  isn't working, get looking for an item you've missed. Items (and keys), are
+  often hidden behind enemies or at the end of coridoors.
 - Raygun Ammo is where you remember it from the original game, but because
   you'll be playing levels in a different order, you'll probably find ammo
   hard to find. Use it wisely (and get good at dodging!)
@@ -116,3 +119,6 @@ Make sure that CK1PATCH and CWSDPMI are copied to the Keen1 directory, as well
 as the RNDKEEN1.BAT and RANDKEEN.EXE files. There's an included shell script
 which compiles RANDKEEN.EXE and does this, though it has some hardcoded paths
 in it.
+
+Finally, look at MAPINFO.TXT for some information about how to modify item
+locations in maps. 

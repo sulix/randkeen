@@ -1,0 +1,22 @@
+A few notes on randomised maps
+------------------------------
+
+As of version 1.1 of the Keen 1 Randomiser, the LEVEL??.CK1 files have been
+modified to contain additional item locations. This was suggested by
+KeenRush[1], and works as follows:
+
+- If multiple keycards of the same colour are present, these act as
+  different possible locations for one keycard. This means that all of them,
+  except for one, will be replaced with the grey sky tile.
+- The first frame of the joystick (tile 221) must be present in every level.
+  It represents a possible location for a special item (the pogo stick or
+  ship parts). Only one such item will be placed in a level.
+- Make sure these possible keycards and items are accessible without the
+  pogo stick (as it's possible that Keen won't have it), and are not
+  behind a door they're needed to open.
+- The exit door will not function until the special item in a level has 
+  been found, so it's safe to hide it somewhere far from the exit.
+  (It might be frustrating, though, if it's hidden somewhere too silly.)
+
+
+[1]: https://pckf.com/viewtopic.php?f=4&t=8569#p95834

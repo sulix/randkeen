@@ -21,6 +21,7 @@
 #include <string.h>
 #include <time.h>
 
+#define RANDOMISER_VERSION "v1.1"
 
 // Options
 int opt_seed = 0;
@@ -30,6 +31,8 @@ bool opt_startPogo = false;
 int opt_startAmmo = 0;
 int opt_extraPogo = 0;
 bool opt_debug = false;
+// Rules version: 0 = v1.0, 1 = v1.1
+int opt_rulesVersion = 1;
 
 void debugf(const char *format, ...)
 {
@@ -209,6 +212,23 @@ bool VORT_FindTile(VorticonsMap *vMap, uint16_t tile, int plane, int *x, int *y)
 	return false;
 }
 
+int VORT_CountTiles(VorticonsMap *vMap, uint16_t tile)
+{
+	int count = 0;
+	for (int y = 0; y < vMap->h; ++y)
+	{
+		for (int x = 0; x < vMap->w; ++x)
+		{
+			uint16_t curTile = VORT_GetTileAtPos(vMap, x, y, 0);
+			if (tile == curTile)
+			{
+				count++;
+			}
+		}
+	}
+	return count;
+}
+
 void VORT_ReplaceTiles(VorticonsMap *vMap, uint16_t tileFrom, uint16_t tileTo, int plane)
 {
 	int x = 0;
@@ -243,6 +263,10 @@ void PermuteArray(int *array, int count)
 #define K1_T_VACUUM 241
 #define K1_T_EXITSIGN1 167
 #define K1_T_EXITSIGN2 168
+#define K1_T_KEY1 190
+#define K1_T_KEY2 191
+#define K1_T_KEY3 192
+#define K1_T_KEY4 193
 
 // NOTE: We don't shuffle the position of the Pogo Stick in Level 16, as it may
 // be required to complete the level, and hence the game.
@@ -251,6 +275,9 @@ int itemsPerSlot[20] = {K1_T_POGOSTICK, K1_T_JOYSTICK, K1_T_BATTERY, K1_T_EVERCL
 	K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY,
 	K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY,
 	K1_T_GREYSKY, K1_T_GREYSKY, K1_T_GREYSKY};
+
+// In v1.1 rules, all levels are treated as having one "slot": i.e., it's equally probable
+// an item will appear in any level, and each level has at most one item.
 
 void K1_AddExtraPogos()
 {
@@ -262,7 +289,7 @@ void K1_AddExtraPogos()
 		itemsPerSlot[freeSlot++] = K1_T_POGOSTICK;
 }
 
-void K1_SetSpecialItem(VorticonsMap *vMap, uint16_t item, int slot)
+void K1_SetSpecialItem_v1(VorticonsMap *vMap, uint16_t item, int slot)
 {
 	// There are two types of special item slots:
 	// - A place where a special item normally goes
@@ -303,8 +330,65 @@ void K1_SetSpecialItem(VorticonsMap *vMap, uint16_t item, int slot)
 	}
 }
 
+void K1_SetSpecialItem(VorticonsMap *vMap, uint16_t item, int slot)
+{
+	// Special items are placed wherever the joystick finds itself.
+	// All other item slots are set to K1_T_GREYSKY.
+	
+	if (item != K1_T_GREYSKY)
+		debugf("\tItem %d in slot %d\n");
+
+	for (int y = 0; y < vMap->h; ++y)
+	{
+		for (int x = 0; x < vMap->w; ++x)
+		{
+			uint16_t tile = VORT_GetTileAtPos(vMap, x, y, 0);
+			if ((tile >= K1_T_JOYSTICK && tile < K1_T_JOYSTICK+4))
+			{
+				if (!slot--)
+				{
+					VORT_SetTileAtPos(vMap, x, y, 0, item);
+				}
+				else
+				{
+					VORT_SetTileAtPos(vMap, x, y, 0, K1_T_GREYSKY);
+				}
+			}
+		}
+	}
+}
+
+void K1_ShuffleSpecificTile(VorticonsMap *vMap, uint16_t tile)
+{
+	// Ensures there's only one occurrance of a particular tile.
+	// (Replaces all but a single random one with K1_T_GREYSKY.
+	
+	int count = VORT_CountTiles(vMap, tile);
+	
+	if (!count)
+		return;
+	
+	int slot = rand()%count;
+	
+	for (int y = 0; y < vMap->h; ++y)
+	{
+		for (int x = 0; x < vMap->w; ++x)
+		{
+			uint16_t curTile = VORT_GetTileAtPos(vMap, x, y, 0);
+			if (tile == curTile)
+			{
+				if (slot--)
+				{
+					VORT_SetTileAtPos(vMap, x, y, 0, K1_T_GREYSKY);
+				}
+			}
+		}
+	}
+}
+
 int mapLocations[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9,
 			10, 11, 12, 13, 14, 15, 16};
+int mapInverseLocations[16];
 
 void K1_ShuffleLevelEntries(VorticonsMap *worldMap)
 {
@@ -322,6 +406,7 @@ void K1_ShuffleLevelEntries(VorticonsMap *worldMap)
 			if (level > 16)
 				continue;
 			debugf("Changing level %d (entry %x) ->", level, entry);
+			mapInverseLocations[mapLocations[level-1] - 1] = level;
 			level = mapLocations[level-1];
 			entry = (entry & ~0x7F) | level;
 			debugf(" level %d (entry %x)\n", level, entry);
@@ -465,9 +550,9 @@ void K1_MungeKeys(VorticonsMap *vMap)
 		{
 			uint16_t tile = VORT_GetTileAtPos(vMap, x, y, 0);
 			// Keys
-			if (tile >= 190 && tile <= 193)
+			if (tile >= K1_T_KEY1 && tile <= K1_T_KEY4)
 			{
-				tile = ((tile - 190) ^ keyMask) + 190;
+				tile = ((tile - K1_T_KEY1) ^ keyMask) + K1_T_KEY1;
 				VORT_SetTileAtPos(vMap, x, y, 0, tile);
 			}
 			// Doors
@@ -557,7 +642,7 @@ void WriteMapHintToPatch(FILE *f, int oldMap, int newMap)
 		fprintf(f, "Level %d\nrests where\nlevel %d once\nwas...\n\n", newMap, oldMap);
 }
 
-void WritePerItemPatch(FILE *f, int level, int item)
+void WritePerItemPatch_v1(FILE *f, int level, int item)
 {
 	static int curPatchItem = 0;
 	uint16_t offset = 0x4F68 + 11 * curPatchItem;
@@ -585,6 +670,58 @@ void WritePerItemPatch(FILE *f, int level, int item)
 	uint8_t end_off = 0x4FA0 - (offset + 13);
 	fprintf(f, "\t\t$EB $%02x\n\n", end_off);
 	curPatchItem++;
+}
+
+void WritePerItemPatch(FILE *f, int level, int item)
+{
+	uint32_t offset = 0x15F80 + 2 * level;
+	// Make sure we don't remove the spaceship parts from the
+	// wrong levels.
+	fprintf(f, "%%patch $%04X ", offset);
+	if (item == K1_T_JOYSTICK)
+		fprintf(f, "$AA94W\n");
+	else if (item == K1_T_BATTERY)
+		fprintf(f, "$AA9CW\n");
+	else if (item == K1_T_VACUUM)
+		fprintf(f, "$AA96W\n");
+	else if (item == K1_T_EVERCLEAR)
+		fprintf(f, "$AA98W\n");
+	else if (item == K1_T_POGOSTICK)
+		fprintf(f, "$AA9AW\n");
+	else
+		fprintf(f, "$0000W\n");
+}
+
+
+void WritePatchHeader_v1(FILE *f)
+{
+	fprintf(f, "%%ext ck1\n");
+	fprintf(f, "%%version 1.31\n\n");
+
+	// Load levels from RNDLV??.CK1
+	fprintf(f, "%%patch $14D9C \"RNDLV\"\n");
+	fprintf(f, "%%patch $14DA3 \"RNDLV\"\n\n");
+
+	// Show the seed in the status screen
+	fprintf(f, "%%patch $14E60 \" RANDOM SEED \"\n");
+	fprintf(f, "%%patch $0FA7\t$B8 $%04XW\n", (opt_seed >> 16) & 0xFFFF);
+	fprintf(f, "\t\t$BA $%04XW\n", opt_seed & 0xFFFF);
+	fprintf(f, "\t\t$90 $90 $90 $90 $90 $90\n\n");
+
+	// Base the game's random number seed off ours.
+	uint8_t randomIndexByte = ((opt_seed >> 24) ^ (opt_seed >> 16) ^ (opt_seed >> 8) ^ opt_seed) & 0xFF;
+	// push ax
+	// mov ax, $00<seed>
+	// mov [randomIndex], ax
+	// pop ax
+	// ret
+	fprintf(f, "%%patch $C0AC $50 $B8 $%02X $00 $A1 $57 $51 $58 $C3\n\n");
+	
+	if (opt_startPogo)
+		fprintf(f, "%%patch $900E $01\n\n");
+
+	if (opt_startAmmo)
+		fprintf(f, "%%patch $9008 $%04XW\n\n", opt_startAmmo);
 }
 
 void WritePatchHeader(FILE *f)
@@ -616,7 +753,67 @@ void WritePatchHeader(FILE *f)
 
 	if (opt_startAmmo)
 		fprintf(f, "%%patch $9008 $%04XW\n\n", opt_startAmmo);
+	
+	// Simplify the main menu
+	fprintf(f, "%%patch $9414 $04\n");
+	fprintf(f, "%%patch $938F $0004W\n");
+	fprintf(f, "%%patch $95CD $04\n");
+	fprintf(f, "%%patch $95ED $9570W $9577W $957FW $9596W $95C2W\n");
+	
+	// Main menu text patch.
+	fprintf(f, "%%patch $9625 $27D8W $50 $E8 $CCA7W $44 $44 $EB $69\n");
+	fprintf(f, "%%patch $15828 \"   New Game\\n\"\n");
+	fprintf(f, "\t\t \"   Continue Game\\n\"\n");
+	fprintf(f, "\t\t \"   Story\\n\"\n");
+	fprintf(f, "\t\t \"   High Scores\\n\"\n");
+	fprintf(f, "\t\t \"   Restart Demo\\n\\n\"\n");
+	fprintf(f, "\t\t \"Randomiser " RANDOMISER_VERSION "\\n\"\n");
+	fprintf(f, "\t\t \"Seed: %d\\n\"\n", opt_seed);
+	fprintf(f, "\t\t \"Starting Ammo: %d\\n\"\n", opt_startAmmo);
+	if (opt_extraPogo)
+		fprintf(f, "\t\t \"Extra Pogos: %d\\n\" $00\n\n", opt_extraPogo);
+	else if (opt_startPogo)
+		fprintf(f, "\t\t \"Starting with Pogo\\n\" $00\n\n");
+	else
+		fprintf(f, "\t\t \"No starting Pogo\\n\" $00\n\n");
+	
+	// We freed up some space in the menu routine. Use it for the exit-door
+	// viability check
+	
+	// seg000:9630:
+	//  mov ax, LevelNumber (dseg:8304)
+	//  shl ax, 1
+	//  mov bx, ax
+	//  mov ax, [ds:LevelPartsArray + bx]  (dseg:2F30 -- the old About ID text)
+	//  test ax, ax
+	//  jz checkStanding
+	//  mov bx, ax
+	//  mov ax, [ds:bx]
+	//  test ax, ax
+	//  jnz checkStanding
+	//  ret
+	//  checkStanding:
+	//  cmp g_KeenObjThinkFunc, offset KeenStandingThink
+	//  jnz bad
+	//  ret
+	//  (nop nop)
+	//  xor ax, ax
+	//  ret
+	fprintf(f, "%%patch $9630 $8B $1E $8304W  $D1 $E3  $B8 $01 $00\n");
+	fprintf(f, "\t\t $8B $9F $2F30W  $85 $DB  $74 $0B\n");
+	fprintf(f, "\t\t $8B $1F  $85 $DB  $75 $05  $31 $C0  $C3 $90 $90\n");
+	fprintf(f, "\t\t $81 $3E $6F0CW $3867W  $75 $01  $C3  $31 $C0  $C3\n");
+	
+	// And call if from the right point
+	fprintf(f, "%%patch $44D2 $E8 $5B $51 $85 $C0 $90 $75\n\n");
+	
+	// Use the new level contents table to remove non-pogo items on exit.
+	// (Also frees up 20 bytes of code space at $4F80)
+	fprintf(f, "%%patch $4F65 $8B $5E $04 $D1 $E3 $8B $9F $2F30W $85 $DB\n");
+	fprintf(f, "\t\t$74 $2E $81 $FB $9A $AA $74 $28 $C7 $87 $0000W $0000W\n");
+	fprintf(f, "\t\t$EB $20\n\n");
 }
+
 
 void WritePatchFooter(FILE *f)
 {
@@ -626,7 +823,7 @@ void WritePatchFooter(FILE *f)
 void PrintBanner()
 {
 	printf("Keen 1 Randomiser\n");
-	printf("\tv1.00c\n");
+	printf("\t" RANDOMISER_VERSION "\n");
 	printf("\tBy David Gow <david@davidgow.net>\n\n");
 }
 
@@ -671,6 +868,11 @@ void ParseOptions(int argc, char **argv)
 		{
 			opt_extraPogo = atoi(argv[++i]);
 		}
+		else if (!strcasecmp(argv[i], "/v1rules"))
+		{
+			printf("WARNING: v1 ruleset requires unmodified levels.\n");
+			opt_rulesVersion = 0;
+		}
 		else if (!strcasecmp(argv[i], "/debug"))
 		{
 			opt_debug = true;
@@ -705,7 +907,16 @@ int main(int argc, char **argv)
 	// Add extra Pogo sticks if requested.
 	K1_AddExtraPogos();
 
-	PermuteArray(itemsPerSlot, 20);
+	if (opt_rulesVersion == 0)
+	{
+		// In v1.0, there are 20 slots
+		PermuteArray(itemsPerSlot, 20);
+	}
+	else
+	{
+		// Otherwise, each level has 1 slot.
+		PermuteArray(itemsPerSlot, 16);
+	}
 
 	FILE *patchFile = fopen("RNDKEEN1.PAT", "w");
 	WritePatchHeader(patchFile);
@@ -732,26 +943,63 @@ int main(int argc, char **argv)
 		K1_ShuffleLollies(&vm);
 		if (opt_shuffleEnemies)
 			K1_ShuffleEnemies(&vm);
-		while (slotsPerLevel[level-1]--)
+		if (opt_rulesVersion == 0)
 		{
-			int item = itemsPerSlot[curItemSlot];
+			// In v1, levels can have multiple special items.
+			while (slotsPerLevel[level-1]--)
+			{
+				int item = itemsPerSlot[curItemSlot];
+				// If we have the pogo at the start, or we have extra pogosticks,
+				// don't generate hints for pogo stick locations.
+				if (!(opt_startPogo || opt_extraPogo) || (item != K1_T_POGOSTICK))
+				{
+					WriteTileHintToPatch(patchFile, item, level);
+					if (item != K1_T_GREYSKY)
+						WriteMapHintToPatch(patchFile, mapInverseLocations[level-1], level);
+				}
+				K1_SetSpecialItem_v1(&vm, item, slotsPerLevel[level-1]);
+				WritePerItemPatch(patchFile, level, item);
+				curItemSlot++;
+			}
+		}
+		else
+		{
+			// Otherwise, each level can have at most one special item, and a dynamic
+			// number of slots, determined from level data.
+			int item = itemsPerSlot[level-1];
+			int curLevelSlots = VORT_CountTiles(&vm, K1_T_JOYSTICK);
+			int itemSlot = rand()%curLevelSlots;
+			K1_SetSpecialItem(&vm, item, itemSlot);
 			// If we have the pogo at the start, or we have extra pogosticks,
 			// don't generate hints for pogo stick locations.
 			if (!(opt_startPogo || opt_extraPogo) || (item != K1_T_POGOSTICK))
 			{
 				WriteTileHintToPatch(patchFile, item, level);
 				if (item != K1_T_GREYSKY)
-					WriteMapHintToPatch(patchFile, mapLocations[level-1], level);
+					WriteMapHintToPatch(patchFile, mapInverseLocations[level-1], level);
 			}
-			K1_SetSpecialItem(&vm, item, slotsPerLevel[level-1]);
 			WritePerItemPatch(patchFile, level, item);
-			curItemSlot++;
+			
+			// Shuffle Key positions
+			K1_ShuffleSpecificTile(&vm, K1_T_KEY1);
+			K1_ShuffleSpecificTile(&vm, K1_T_KEY2);
+			K1_ShuffleSpecificTile(&vm, K1_T_KEY3);
+			K1_ShuffleSpecificTile(&vm, K1_T_KEY4);
 		}
 		sprintf(fname, "RNDLV%02d.CK1", level);
 		f = fopen(fname, "wb");
 		VORT_SaveMap(&vm, f);
 		fclose(f);
 	}
+
+	// Randomise the block colours on the main menu.
+	f = fopen("LEVEL90.CK1", "rb");
+	VorticonsMap titleScrMap = VORT_LoadMap(f);
+	fclose(f);
+	K1_MungeBlockColours(&titleScrMap);
+	f = fopen("RNDLV90.CK1", "wb");
+	VORT_SaveMap(&titleScrMap, f);
+	fclose(f);
 
 	WritePatchFooter(patchFile);
 	fclose(patchFile);
