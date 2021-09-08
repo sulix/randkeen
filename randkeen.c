@@ -34,6 +34,7 @@ bool opt_debug = false;
 // Rules version: 0 = v1.0, 1 = v1.1
 int opt_rulesVersion = 1;
 
+void debugf(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 void debugf(const char *format, ...)
 {
 	if (!opt_debug)
@@ -296,7 +297,7 @@ void K1_SetSpecialItem_v1(VorticonsMap *vMap, uint16_t item, int slot)
 	// - The place below the "exit" sign in a level
 	
 	if (item != K1_T_GREYSKY)
-		debugf("\tItem %d in slot %d\n");
+		debugf("\tItem %d in slot %d\n", item, slot);
 
 	for (int y = 0; y < vMap->h; ++y)
 	{
@@ -336,7 +337,7 @@ void K1_SetSpecialItem(VorticonsMap *vMap, uint16_t item, int slot)
 	// All other item slots are set to K1_T_GREYSKY.
 	
 	if (item != K1_T_GREYSKY)
-		debugf("\tItem %d in slot %d\n");
+		debugf("\tItem %d in slot %d\n", item, slot);
 
 	for (int y = 0; y < vMap->h; ++y)
 	{
