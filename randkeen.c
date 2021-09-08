@@ -716,7 +716,7 @@ void WritePatchHeader_v1(FILE *f)
 	// mov [randomIndex], ax
 	// pop ax
 	// ret
-	fprintf(f, "%%patch $C0AC $50 $B8 $%02X $00 $A1 $57 $51 $58 $C3\n\n");
+	fprintf(f, "%%patch $C0AC $50 $B8 $%02X $00 $A1 $57 $51 $58 $C3\n\n", randomIndexByte);
 	
 	if (opt_startPogo)
 		fprintf(f, "%%patch $900E $01\n\n");
@@ -747,7 +747,7 @@ void WritePatchHeader(FILE *f)
 	// mov [randomIndex], ax
 	// pop ax
 	// ret
-	fprintf(f, "%%patch $C0AC $50 $B8 $%02X $00 $A1 $57 $51 $58 $C3\n\n");
+	fprintf(f, "%%patch $C0AC $50 $B8 $%02X $00 $A1 $57 $51 $58 $C3\n\n", randomIndexByte);
 	
 	if (opt_startPogo)
 		fprintf(f, "%%patch $900E $01\n\n");
