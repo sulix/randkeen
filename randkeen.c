@@ -660,13 +660,13 @@ void WritePerItemPatch_v1(FILE *f, int level, int item)
 	fprintf(f, "\t\t$75 $06\n");
 	// mov (GameState.got_item), 0
 	if (item == K1_T_JOYSTICK)
-		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n", level);
+		fprintf(f, "\t\t$C7 $06 $AA94W $0000W\n");
 	else if (item == K1_T_BATTERY)
-		fprintf(f, "\t\t$C7 $06 $AA9CW $0000W\n", level);
+		fprintf(f, "\t\t$C7 $06 $AA9CW $0000W\n");
 	else if (item == K1_T_VACUUM)
-		fprintf(f, "\t\t$C7 $06 $AA96W $0000W\n", level);
+		fprintf(f, "\t\t$C7 $06 $AA96W $0000W\n");
 	else if (item == K1_T_EVERCLEAR)
-		fprintf(f, "\t\t$C7 $06 $AA98W $0000W\n", level);
+		fprintf(f, "\t\t$C7 $06 $AA98W $0000W\n");
 
 	uint8_t end_off = 0x4FA0 - (offset + 13);
 	fprintf(f, "\t\t$EB $%02x\n\n", end_off);
